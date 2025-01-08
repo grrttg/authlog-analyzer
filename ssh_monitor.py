@@ -7,7 +7,7 @@ import configparser
 import argparse
 
 # Regex for extracting IPs from failed SSH login attempts
-FAILED_REGEX = r"Failed password for .* from (\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b)"
+FAILED_REGEX = r"Failed password for .* from ((?:\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b)|<INSERT_KNOWN_MALICIOUS_IP>)"
 
 def parse_auth_log(log_path):
     """Parse the SSH auth log and extract IPs from failed login attempts."""
@@ -23,7 +23,11 @@ def parse_auth_log(log_path):
         for line in lines:
             match = re.search(FAILED_REGEX, line)
             if match:
-                ip_addresses.append(match.group(1))
+                ip = match.group(1)
+                if ip == "<INSERT_KNOWN_MALICIOUS_IP>":
+                    print("[INFO] Test file detected. Please replace <INSERT_KNOWN_MALICIOUS_IP> with a real IP address known to have a high abuse score.")
+                    continue
+                ip_addresses.append(ip)
                 
         if not ip_addresses:
             print("[INFO] No failed login attempts with valid IPs found.")

@@ -1,4 +1,4 @@
 Mar 20 08:15:23 hostname sshd[12345]: Accepted publickey for username from 192.168.1.100 port 52431 ssh2
 Mar 20 08:15:23 hostname sudo:   username : TTY=pts/0 ; PWD=/home/username ; USER=root ; COMMAND=/usr/bin/apt update
-Mar 20 08:15:24 hostname sshd[12346]: Failed password for invalid user admin from 203.0.113.45 port 49812 ssh2
+Mar 20 08:15:24 hostname sshd[12346]: Failed password for invalid user admin from <INSERT_KNOWN_MALICIOUS_IP> port 49812 ssh2
 Mar 20 08:15:25 hostname systemd-logind[1234]: New session 1234 of user username.
