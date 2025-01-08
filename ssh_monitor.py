@@ -4,6 +4,7 @@ import os
 import re
 import requests
 import configparser
+import argparse
 
 # Regex for extracting IPs from failed SSH login attempts
 FAILED_REGEX = r"Failed password for .* from (\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b)"
@@ -14,13 +15,21 @@ def parse_auth_log(log_path):
     try:
         with open(log_path, 'r') as log_file:
             lines = log_file.readlines()
+        if not lines:
+            print("[INFO] Log file is empty.")
+            return []
+            
         ip_addresses = []
         for line in lines:
             match = re.search(FAILED_REGEX, line)
             if match:
                 ip_addresses.append(match.group(1))
+                
         if not ip_addresses:
             print("[INFO] No failed login attempts with valid IPs found.")
+        else:
+            print(f"[INFO] Found {len(ip_addresses)} failed login attempts with valid IPs.")
+            
         return ip_addresses
     except FileNotFoundError:
         print(f"[ERROR] Log file '{log_path}' not found.")
@@ -56,12 +65,27 @@ def log_alert(alert_log_path, ip, score):
 
 def main():
     """Main script logic."""
+    parser = argparse.ArgumentParser(description="Monitor and analyze SSH logs.")
+    parser.add_argument('log_file', nargs='?', help="Path to the log file (overrides config.ini)", default=None)
+    args = parser.parse_args()
+
+    # Handle log file path
+    log_file = args.log_file
+    if not log_file:
+        log_file = input("[PROMPT] Enter log file path (press Enter to use default): ").strip()
+        # Clean up the dragged file path by removing quotes and extra whitespace
+        log_file = log_file.strip("'\"").strip()
+        if not log_file:
+            print("[INFO] Using default log file from config.ini.")
+            config = configparser.ConfigParser()
+            config.read('config.ini')
+            log_file = config.get('default', 'log_file', fallback='/var/log/auth.log')
+
     print("[INFO] Loading configuration...")
     # Load configuration
     config = configparser.ConfigParser()
     config.read('config.ini')
     
-    log_file = config.get('default', 'log_file', fallback='/var/log/auth.log')
     threshold = config.getint('default', 'threshold', fallback=50)
     alert_log = config.get('default', 'alert_log', fallback='alerts.log')
     api_key = config.get('abuseipdb', 'api_key', fallback=None)
@@ -76,24 +100,23 @@ def main():
     ip_addresses = parse_auth_log(log_file)
 
     if not ip_addresses:
-        print("[INFO] No valid IPs to check. Exiting.")
+        print("[INFO] No valid IPs to check.")
         print("[INFO] No alerts were generated. alerts.log was not created.")
-        return
-
-    print("[INFO] Checking IP reputations...")
-    alerts_generated = False  # Track if alerts were generated
-
-    # Check each IP's reputation and log alerts if above threshold
-    for ip in ip_addresses:
-        score = check_ip_reputation(ip, api_key, base_url)
-        if score is not None and score >= threshold:
-            log_alert(alert_log, ip, score)
-            alerts_generated = True
-
-    if alerts_generated:
-        print(f"[INFO] Alerts were logged to {alert_log}.")
     else:
-        print("[INFO] No alerts generated.")
+        print("[INFO] Checking IP reputations...")
+        alerts_generated = False
+        
+        # Check each IP's reputation and log alerts if above threshold
+        for ip in ip_addresses:
+            score = check_ip_reputation(ip, api_key, base_url)
+            if score is not None and score >= threshold:
+                log_alert(alert_log, ip, score)
+                alerts_generated = True
+
+        if alerts_generated:
+            print(f"[INFO] Alerts were logged to {alert_log}.")
+        else:
+            print("[INFO] No alerts were generated. alerts.log was not created.")
 
     print("[INFO] Script completed.")
 

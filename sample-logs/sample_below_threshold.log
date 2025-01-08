@@ -1,0 +1,2 @@
+Jan  1 12:00:01 kali sshd[1234]: Failed password for invalid user testuser from 8.8.8.8 port 22 ssh2
+Jan  1 12:00:02 kali sshd[1235]: Failed password for invalid user admin from 8.8.8.8 port 22 ssh2
