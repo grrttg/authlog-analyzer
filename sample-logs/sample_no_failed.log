@@ -1,0 +1,7 @@
+Mar 15 09:23:45 hostname sshd[12345]: Accepted publickey for user1 from 192.168.1.100 port 52431 ssh2
+Mar 15 09:23:45 hostname systemd-logind[1234]: New session 5678 of user user1.
+Mar 15 09:23:46 hostname sudo: user1 : TTY=pts/0 ; PWD=/home/user1 ; USER=root ; COMMAND=/usr/bin/apt update
+Mar 15 10:15:23 hostname sshd[12346]: Accepted password for user2 from 10.0.0.50 port 54321 ssh2
+Mar 15 10:15:23 hostname systemd-logind[1234]: New session 5679 of user user2.
+Mar 15 11:30:12 hostname sshd[12347]: Accepted publickey for admin from 172.16.0.25 port 49876 ssh2
+Mar 15 11:30:12 hostname systemd-logind[1234]: New session 5680 of user admin.
