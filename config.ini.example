@@ -2,6 +2,7 @@
 log_file = /var/log/auth.log
 threshold = 50
 alert_log = alerts.log
+whitelist = 127.0.0.1, 192.168.1.0/24
 
 [abuseipdb] 
 api_key = YOUR_AbuseIPDB_API_KEY_HERE
