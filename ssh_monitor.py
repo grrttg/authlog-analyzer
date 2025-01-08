@@ -5,9 +5,11 @@ import re
 import requests
 import configparser
 import argparse
+import socket
+import ipaddress
 
-# Regex for extracting IPs from failed SSH login attempts
-FAILED_REGEX = r"Failed password for .* from ((?:\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b)|<INSERT_KNOWN_MALICIOUS_IP>)"
+# New comprehensive regex pattern
+FAILED_REGEX = r"Failed password for .* from ([^\s]+) port"
 
 def parse_auth_log(log_path):
     """Parse the SSH auth log and extract IPs from failed login attempts."""
@@ -23,11 +25,15 @@ def parse_auth_log(log_path):
         for line in lines:
             match = re.search(FAILED_REGEX, line)
             if match:
-                ip = match.group(1)
-                if ip == "<INSERT_KNOWN_MALICIOUS_IP>":
+                raw_ip = match.group(1)
+                if raw_ip == "<INSERT_KNOWN_MALICIOUS_IP>":
                     print("[INFO] Test file detected. Please replace <INSERT_KNOWN_MALICIOUS_IP> with a real IP address known to have a high abuse score.")
                     continue
-                ip_addresses.append(ip)
+                normalized_ip = validate_and_normalize_ip(raw_ip)
+                if normalized_ip:
+                    ip_addresses.append(normalized_ip)
+                else:
+                    print(f"[WARNING] Invalid IP or hostname found: {raw_ip}")
                 
         if not ip_addresses:
             print("[INFO] No failed login attempts with valid IPs found.")
@@ -66,6 +72,27 @@ def log_alert(alert_log_path, ip, score):
         print(alert_message.strip())
     except Exception as e:
         print(f"[ERROR] Could not write to alert log: {e}")
+
+def validate_and_normalize_ip(ip_or_host):
+    """Validate and normalize IP addresses or hostnames."""
+    try:
+        # Try to resolve hostname to IP
+        if not re.match(r'^(?:\d{1,3}\.){3}\d{1,3}$|^[0-9a-fA-F:]+$', ip_or_host):
+            try:
+                ip_or_host = socket.gethostbyname(ip_or_host)
+            except socket.gaierror:
+                return None
+
+        # Validate IPv4
+        if re.match(r'^(?:\d{1,3}\.){3}\d{1,3}$', ip_or_host):
+            addr = ipaddress.IPv4Address(ip_or_host)
+            return str(addr)
+        # Validate IPv6
+        else:
+            addr = ipaddress.IPv6Address(ip_or_host)
+            return str(addr)
+    except ValueError:
+        return None
 
 def main():
     """Main script logic."""
