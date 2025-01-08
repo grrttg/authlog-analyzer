@@ -94,6 +94,30 @@ def validate_and_normalize_ip(ip_or_host):
     except ValueError:
         return None
 
+def is_ip_whitelisted(ip, whitelist):
+    """Check if an IP is in the whitelist. Supports individual IPs and CIDR notation."""
+    if not whitelist:
+        return False
+        
+    try:
+        ip_obj = ipaddress.ip_address(ip)
+        for entry in whitelist:
+            entry = entry.strip()
+            try:
+                if '/' in entry:  # CIDR notation
+                    if ip_obj in ipaddress.ip_network(entry, strict=False):
+                        return True
+                else:  # Single IP
+                    if ip_obj == ipaddress.ip_address(entry):
+                        return True
+            except ValueError:
+                print(f"[WARNING] Invalid whitelist entry: {entry}")
+                continue
+        return False
+    except ValueError:
+        print(f"[WARNING] Invalid IP address: {ip}")
+        return False
+
 def main():
     """Main script logic."""
     parser = argparse.ArgumentParser(description="Monitor and analyze SSH logs.")
@@ -104,7 +128,6 @@ def main():
     log_file = args.log_file
     if not log_file:
         log_file = input("[PROMPT] Enter log file path (press Enter to use default): ").strip()
-        # Clean up the dragged file path by removing quotes and extra whitespace
         log_file = log_file.strip("'\"").strip()
         if not log_file:
             print("[INFO] Using default log file from config.ini.")
@@ -113,7 +136,6 @@ def main():
             log_file = config.get('default', 'log_file', fallback='/var/log/auth.log')
 
     print("[INFO] Loading configuration...")
-    # Load configuration
     config = configparser.ConfigParser()
     config.read('config.ini')
     
@@ -121,13 +143,19 @@ def main():
     alert_log = config.get('default', 'alert_log', fallback='alerts.log')
     api_key = config.get('abuseipdb', 'api_key', fallback=None)
     base_url = config.get('abuseipdb', 'base_url', fallback='https://api.abuseipdb.com/api/v2/check')
+    
+    # Get whitelist from config
+    whitelist_str = config.get('default', 'whitelist', fallback='')
+    whitelist = [ip.strip() for ip in whitelist_str.split(',') if ip.strip()] if whitelist_str else []
+    
+    if whitelist:
+        print(f"[INFO] Loaded {len(whitelist)} whitelist entries")
 
     if not api_key:
         print("[ERROR] API key is missing in config.ini.")
         sys.exit(1)
 
     print("[INFO] Starting log parsing...")
-    # Parse the auth log
     ip_addresses = parse_auth_log(log_file)
 
     if not ip_addresses:
@@ -137,8 +165,11 @@ def main():
         print("[INFO] Checking IP reputations...")
         alerts_generated = False
         
-        # Check each IP's reputation and log alerts if above threshold
         for ip in ip_addresses:
+            if is_ip_whitelisted(ip, whitelist):
+                print(f"[INFO] Skipping whitelisted IP: {ip}")
+                continue
+                
             score = check_ip_reputation(ip, api_key, base_url)
             if score is not None and score >= threshold:
                 log_alert(alert_log, ip, score)
