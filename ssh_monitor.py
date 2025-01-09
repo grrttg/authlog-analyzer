@@ -118,6 +118,30 @@ def is_ip_whitelisted(ip, whitelist):
         print(f"[WARNING] Invalid IP address: {ip}")
         return False
 
+def is_ip_blacklisted(ip, blacklist):
+    """Check if an IP is in the blacklist. Supports individual IPs and CIDR notation."""
+    if not blacklist:
+        return False
+        
+    try:
+        ip_obj = ipaddress.ip_address(ip)
+        for entry in blacklist:
+            entry = entry.strip()
+            try:
+                if '/' in entry:  # CIDR notation
+                    if ip_obj in ipaddress.ip_network(entry, strict=False):
+                        return True
+                else:  # Single IP
+                    if ip_obj == ipaddress.ip_address(entry):
+                        return True
+            except ValueError:
+                print(f"[WARNING] Invalid blacklist entry: {entry}")
+                continue
+        return False
+    except ValueError:
+        print(f"[WARNING] Invalid IP address: {ip}")
+        return False
+
 def main():
     """Main script logic."""
     parser = argparse.ArgumentParser(description="Monitor and analyze SSH logs.")
@@ -151,6 +175,13 @@ def main():
     if whitelist:
         print(f"[INFO] Loaded {len(whitelist)} whitelist entries")
 
+    # Get blacklist from config
+    blacklist_str = config.get('default', 'blacklist', fallback='')
+    blacklist = [ip.strip() for ip in blacklist_str.split(',') if ip.strip()] if blacklist_str else []
+    
+    if blacklist:
+        print(f"[INFO] Loaded {len(blacklist)} blacklist entries")
+
     if not api_key:
         print("[ERROR] API key is missing in config.ini.")
         sys.exit(1)
@@ -166,6 +197,12 @@ def main():
         alerts_generated = False
         
         for ip in ip_addresses:
+            if is_ip_blacklisted(ip, blacklist):
+                print(f"[INFO] Found blacklisted IP: {ip}")
+                log_alert(alert_log, ip, 100)  # Use score 100 for blacklisted IPs
+                alerts_generated = True
+                continue
+                
             if is_ip_whitelisted(ip, whitelist):
                 print(f"[INFO] Skipping whitelisted IP: {ip}")
                 continue
