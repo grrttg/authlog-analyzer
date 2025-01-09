@@ -11,11 +11,52 @@ import ipaddress
 # New comprehensive regex pattern
 FAILED_REGEX = r"Failed password for .* from ([^\s]+) port"
 
+def sanitize_file_path(file_path, allowed_paths=None):
+    """
+    Sanitize and validate a file path.
+    
+    Args:
+        file_path (str): The path to sanitize
+        allowed_paths (list): Optional list of allowed base directories
+        
+    Returns:
+        str: Sanitized absolute path, or None if invalid
+    """
+    if not file_path:
+        return None
+        
+    try:
+        # Convert to absolute path and resolve any symbolic links
+        clean_path = os.path.abspath(os.path.realpath(file_path))
+        
+        # Check if path exists and is a file
+        if not os.path.isfile(clean_path):
+            return None
+            
+        # If allowed paths specified, verify path is within allowed directories
+        if allowed_paths:
+            if not any(clean_path.startswith(os.path.abspath(base)) for base in allowed_paths):
+                print(f"[WARNING] Path {clean_path} is outside allowed directories")
+                return None
+                
+        return clean_path
+        
+    except (ValueError, TypeError, OSError) as e:
+        print(f"[ERROR] Path validation failed: {e}")
+        return None
+
 def parse_auth_log(log_path):
     """Parse the SSH auth log and extract IPs from failed login attempts."""
     print(f"[INFO] Parsing log file: {log_path}")
+    
+    # Sanitize the log path
+    clean_path = sanitize_file_path(log_path, ['/var/log', 'sample-logs'])
+    if not clean_path:
+        print(f"[ERROR] Invalid or inaccessible log file path: {log_path}")
+        sys.exit(1)
+        
     try:
-        with open(log_path, 'r') as log_file:
+        with open(clean_path, 'r') as log_file:
             lines = log_file.readlines()
         if not lines:
             print("[INFO] Log file is empty.")
@@ -177,6 +218,13 @@ def main():
             config = configparser.ConfigParser()
             config.read('config.ini')
             log_file = config.get('default', 'log_file', fallback='/var/log/auth.log')
+            
+    # Sanitize the path before proceeding
+    clean_path = sanitize_file_path(log_file, ['/var/log', 'sample-logs'])
+    if not clean_path:
+        print("[ERROR] Invalid or inaccessible log file path")
+        sys.exit(1)
+    log_file = clean_path
 
     print("[INFO] Loading configuration...")
     config = configparser.ConfigParser()
