@@ -1,11 +1,43 @@
 [default]
+# Path to the system's SSH authentication log file
+# - Standard location on many Linux distributions
+# - Contains all SSH login attempts, successful or failed
+# - Requires appropriate permissions to read (usually needs root/sudo)
+# - Can be configured here as it may vary by environment but isn't sensitive
 log_file = /var/log/auth.log
+
+# Number of failed login attempts before triggering an alert
+# - Set to 50 as a reasonable baseline for detecting brute force attempts
+# - High enough to avoid false positives from legitimate typos
+# - Low enough to catch automated attack attempts
+# - Belongs in config.ini as it's a tunable parameter, not a secret
 threshold = 50
+
+# Location where the tool will write its alert logs
+# - Separate from system logs for easier analysis
+# - Contains detailed information about detected threats
+# - Used for historical analysis and incident response
+# - Configuration value that may change between environments
 alert_log = alerts.log
+
+# Whitelist entries:
+# - 127.0.0.1: Localhost loopback address, always trusted for local testing and development
+# - 192.168.1.0/24: Example corporate network range where trusted admin workstations reside
+# - Stored in config.ini as these are environment-specific but not sensitive
 whitelist = 127.0.0.1, 192.168.1.0/24
+
+# Blacklist entries demonstrate common security controls:
+# - Stored in config.ini as these are operational configurations, not secrets
+# - May differ between environments but don't need to be hidden
 blacklist = 10.0.0.5, 172.16.0.0/16
+
+# Determines how to handle internal (RFC 1918) IP addresses
+# - Configuration choice that affects behavior but isn't sensitive
 internal_ip_action = log  # Options: ignore, log, or check
 
-[abuseipdb] 
-api_key = YOUR_AbuseIPDB_API_KEY_HERE
+[abuseipdb]
+# Base URL for the AbuseIPDB API
+# - Static endpoint that doesn't contain sensitive information
+# - Can be version controlled safely
+# - API key is stored separately in .env file for security
 base_url = https://api.abuseipdb.com/api/v2/check
