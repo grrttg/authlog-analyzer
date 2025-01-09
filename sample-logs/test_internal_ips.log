@@ -1,0 +1,13 @@
+# RFC 1918 addresses (internal)
+Jan 1 12:00:01 host sshd[1234]: Failed password for invalid user test from 10.0.0.100 port 22 ssh2
+Jan 1 12:00:02 host sshd[1235]: Failed password for invalid user test from 172.16.5.100 port 22 ssh2
+Jan 1 12:00:03 host sshd[1236]: Failed password for invalid user test from 192.168.2.100 port 22 ssh2
+
+# Whitelisted internal address (assuming 192.168.1.0/24 is in your whitelist)
+Jan 1 12:00:04 host sshd[1237]: Failed password for invalid user test from 192.168.1.100 port 22 ssh2
+
+# Blacklisted internal address (assuming 172.16.0.0/16 is in your blacklist)
+Jan 1 12:00:05 host sshd[1238]: Failed password for invalid user test from 172.16.1.100 port 22 ssh2
+
+# Public IP (for comparison)
+Jan 1 12:00:06 host sshd[1239]: Failed password for invalid user test from 8.8.8.8 port 22 ssh2

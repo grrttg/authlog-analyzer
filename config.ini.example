@@ -4,6 +4,7 @@ threshold = 50
 alert_log = alerts.log
 whitelist = 127.0.0.1, 192.168.1.0/24
 blacklist = 10.0.0.5, 172.16.0.0/16
+internal_ip_action = log  # Options: ignore, log, or check
 
 [abuseipdb] 
 api_key = YOUR_AbuseIPDB_API_KEY_HERE
