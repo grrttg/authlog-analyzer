@@ -64,12 +64,15 @@ def check_ip_reputation(ip, api_key, base_url):
 
 def log_alert(alert_log_path, ip, score):
     """Log an alert to a file."""
-    print(f"[ALERT] Logging alert for IP: {ip} with score: {score}")
     try:
-        alert_message = f"[ALERT] IP: {ip}, Abuse Score: {score}\n"
+        if score == -1:
+            alert_message = f"[ALERT] Internal IP detected: {ip} (RFC 1918 address)\n"
+        else:
+            alert_message = f"[ALERT] IP: {ip}, Abuse Score: {score}\n"
+            
+        print(alert_message.strip())
         with open(alert_log_path, 'a') as log_file:
             log_file.write(alert_message)
-        print(alert_message.strip())
     except Exception as e:
         print(f"[ERROR] Could not write to alert log: {e}")
 
@@ -142,6 +145,22 @@ def is_ip_blacklisted(ip, blacklist):
         print(f"[WARNING] Invalid IP address: {ip}")
         return False
 
+def is_rfc1918(ip):
+    """Check if an IP address is in RFC 1918 private ranges."""
+    try:
+        ip_obj = ipaddress.ip_address(ip)
+        if not ip_obj.is_private:
+            return False
+            
+        private_networks = [
+            ipaddress.ip_network('10.0.0.0/8'),
+            ipaddress.ip_network('172.16.0.0/12'),
+            ipaddress.ip_network('192.168.0.0/16')
+        ]
+        return any(ip_obj in network for network in private_networks)
+    except ValueError:
+        return False
+
 def main():
     """Main script logic."""
     parser = argparse.ArgumentParser(description="Monitor and analyze SSH logs.")
@@ -186,6 +205,12 @@ def main():
         print("[ERROR] API key is missing in config.ini.")
         sys.exit(1)
 
+    # Add after loading other config values
+    internal_ip_action = config.get('default', 'internal_ip_action', fallback='log').lower()
+    if internal_ip_action not in ['ignore', 'log', 'check']:
+        print("[WARNING] Invalid internal_ip_action in config. Using 'log' as default.")
+        internal_ip_action = 'log'
+
     print("[INFO] Starting log parsing...")
     ip_addresses = parse_auth_log(log_file)
 
@@ -206,6 +231,17 @@ def main():
             if is_ip_whitelisted(ip, whitelist):
                 print(f"[INFO] Skipping whitelisted IP: {ip}")
                 continue
+                
+            if is_rfc1918(ip):
+                if internal_ip_action == 'ignore':
+                    print(f"[INFO] Ignoring internal IP: {ip}")
+                    continue
+                elif internal_ip_action == 'log':
+                    print(f"[INFO] Logging internal IP attempt: {ip}")
+                    log_alert(alert_log, ip, -1)  # Use -1 to indicate internal IP
+                    alerts_generated = True
+                    continue
+                # If action is 'check', continue with normal processing
                 
             score = check_ip_reputation(ip, api_key, base_url)
             if score is not None and score >= threshold:
