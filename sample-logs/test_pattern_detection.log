@@ -1,0 +1,43 @@
+# LOW SEVERITY TEST (3-5 failures then success)
+Jan 1 12:00:01 host sshd[1234]: Failed password for invalid user admin from 8.8.8.8 port 22 ssh2
+Jan 1 12:00:02 host sshd[1235]: Failed password for invalid user admin from 8.8.8.8 port 22 ssh2
+Jan 1 12:00:03 host sshd[1236]: Failed password for invalid user admin from 8.8.8.8 port 22 ssh2
+Jan 1 12:00:04 host sshd[1237]: Accepted password for admin from 8.8.8.8 port 22 ssh2
+
+# MEDIUM SEVERITY TEST (6-9 failures then success)
+Jan 1 12:01:01 host sshd[1238]: Failed password for invalid user root from 9.9.9.9 port 22 ssh2
+Jan 1 12:01:02 host sshd[1239]: Failed password for invalid user root from 9.9.9.9 port 22 ssh2
+Jan 1 12:01:03 host sshd[1240]: Failed password for invalid user root from 9.9.9.9 port 22 ssh2
+Jan 1 12:01:04 host sshd[1241]: Failed password for invalid user root from 9.9.9.9 port 22 ssh2
+Jan 1 12:01:05 host sshd[1242]: Failed password for invalid user root from 9.9.9.9 port 22 ssh2
+Jan 1 12:01:06 host sshd[1243]: Failed password for invalid user root from 9.9.9.9 port 22 ssh2
+Jan 1 12:01:07 host sshd[1244]: Accepted password for root from 9.9.9.9 port 22 ssh2
+
+# HIGH SEVERITY TEST (10+ failures then success)
+Jan 1 12:02:01 host sshd[1245]: Failed password for invalid user admin from 7.7.7.7 port 22 ssh2
+Jan 1 12:02:02 host sshd[1246]: Failed password for invalid user admin from 7.7.7.7 port 22 ssh2
+Jan 1 12:02:03 host sshd[1247]: Failed password for invalid user admin from 7.7.7.7 port 22 ssh2
+Jan 1 12:02:04 host sshd[1248]: Failed password for invalid user admin from 7.7.7.7 port 22 ssh2
+Jan 1 12:02:05 host sshd[1249]: Failed password for invalid user admin from 7.7.7.7 port 22 ssh2
+Jan 1 12:02:06 host sshd[1250]: Failed password for invalid user admin from 7.7.7.7 port 22 ssh2
+Jan 1 12:02:07 host sshd[1251]: Failed password for invalid user admin from 7.7.7.7 port 22 ssh2
+Jan 1 12:02:08 host sshd[1252]: Failed password for invalid user admin from 7.7.7.7 port 22 ssh2
+Jan 1 12:02:09 host sshd[1253]: Failed password for invalid user admin from 7.7.7.7 port 22 ssh2
+Jan 1 12:02:10 host sshd[1254]: Failed password for invalid user admin from 7.7.7.7 port 22 ssh2
+Jan 1 12:02:11 host sshd[1255]: Accepted password for admin from 7.7.7.7 port 22 ssh2
+
+# BELOW THRESHOLD TEST (2 failures then success - should not trigger)
+Jan 1 12:03:01 host sshd[1256]: Failed password for invalid user test from 6.6.6.6 port 22 ssh2
+Jan 1 12:03:02 host sshd[1257]: Failed password for invalid user test from 6.6.6.6 port 22 ssh2
+Jan 1 12:03:03 host sshd[1258]: Accepted password for test from 6.6.6.6 port 22 ssh2
+
+# WHITELISTED IP TEST (should not trigger despite multiple failures)
+Jan 1 12:04:01 host sshd[1259]: Failed password for invalid user admin from 192.168.1.100 port 22 ssh2
+Jan 1 12:04:02 host sshd[1260]: Failed password for invalid user admin from 192.168.1.100 port 22 ssh2
+Jan 1 12:04:03 host sshd[1261]: Failed password for invalid user admin from 192.168.1.100 port 22 ssh2
+Jan 1 12:04:04 host sshd[1262]: Failed password for invalid user admin from 192.168.1.100 port 22 ssh2
+Jan 1 12:04:05 host sshd[1263]: Accepted password for admin from 192.168.1.100 port 22 ssh2
+
+# BLACKLISTED IP TEST (should trigger immediate alert regardless of pattern)
+Jan 1 12:05:01 host sshd[1264]: Failed password for invalid user root from 172.16.1.100 port 22 ssh2
+Jan 1 12:05:02 host sshd[1265]: Accepted password for root from 172.16.1.100 port 22 ssh2
