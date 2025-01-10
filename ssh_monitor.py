@@ -9,7 +9,9 @@ import socket
 import ipaddress
 from dotenv import load_dotenv
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Dict, Optional, NamedTuple
+import json
 
 print("[DEBUG] Entered ssh_monitor.py – top of file!")
 print("[DEBUG] Python interpreter in use:", sys.executable)
@@ -43,6 +45,80 @@ class LoginEvent:
     def unix_timestamp(self) -> float:
         """Convert datetime to Unix timestamp for easier time window calculations."""
         return self.timestamp.timestamp()
+
+class IPReputationData(NamedTuple):
+    """Store IP reputation data with timestamp"""
+    score: int
+    timestamp: datetime
+
+class IPReputationCache:
+    """Cache for storing IP reputation data with TTL"""
+    def __init__(self, cache_file: str = 'ip_cache.json', ttl_hours: int = 24):
+        self.cache_file = cache_file
+        self.ttl = timedelta(hours=ttl_hours)
+        self.cache: Dict[str, IPReputationData] = {}
+        self.load_cache()
+
+    def load_cache(self) -> None:
+        """Load cache from file if it exists"""
+        try:
+            if os.path.exists(self.cache_file):
+                with open(self.cache_file, 'r') as f:
+                    data = json.load(f)
+                    self.cache = {
+                        ip: IPReputationData(
+                            score=entry['score'],
+                            timestamp=datetime.fromisoformat(entry['timestamp'])
+                        )
+                        for ip, entry in data.items()
+                    }
+                print(f"[INFO] Loaded {len(self.cache)} IP reputation entries from cache")
+        except Exception as e:
+            print(f"[WARNING] Failed to load IP cache: {e}")
+            self.cache = {}
+
+    def save_cache(self) -> None:
+        """Save cache to file"""
+        try:
+            cache_data = {
+                ip: {
+                    'score': data.score,
+                    'timestamp': data.timestamp.isoformat()
+                }
+                for ip, data in self.cache.items()
+            }
+            with open(self.cache_file, 'w') as f:
+                json.dump(cache_data, f)
+        except Exception as e:
+            print(f"[WARNING] Failed to save IP cache: {e}")
+
+    def get(self, ip: str) -> Optional[int]:
+        """Get cached reputation score if valid"""
+        if ip in self.cache:
+            data = self.cache[ip]
+            if datetime.now() - data.timestamp < self.ttl:
+                print(f"[INFO] Using cached reputation score for IP: {ip}")
+                return data.score
+            else:
+                print(f"[INFO] Cached data expired for IP: {ip}")
+                del self.cache[ip]
+        return None
+
+    def set(self, ip: str, score: int) -> None:
+        """Cache reputation score with current timestamp"""
+        self.cache[ip] = IPReputationData(score=score, timestamp=datetime.now())
+        self.save_cache()
+
+    def clear_expired(self) -> None:
+        """Remove expired entries from cache"""
+        now = datetime.now()
+        expired = [ip for ip, data in self.cache.items() 
+                  if now - data.timestamp >= self.ttl]
+        for ip in expired:
+            del self.cache[ip]
+        if expired:
+            print(f"[INFO] Cleared {len(expired)} expired entries from cache")
+            self.save_cache()
 
 def sanitize_file_path(file_path, allowed_paths=None):
     """
@@ -147,16 +223,25 @@ def parse_auth_log(log_path):
         print(f"[ERROR] Log file '{log_path}' not found.")
         sys.exit(1)
 
-def check_ip_reputation(ip, api_key, base_url):
-    """Check the reputation of an IP using the AbuseIPDB API."""
+def check_ip_reputation(ip: str, api_key: str, base_url: str, cache: IPReputationCache) -> Optional[int]:
+    """Check the reputation of an IP using the AbuseIPDB API with caching."""
+    # Try to get cached score first
+    cached_score = cache.get(ip)
+    if cached_score is not None:
+        return cached_score
+
     print(f"[INFO] Checking reputation for IP: {ip}")
     headers = {'Key': api_key, 'Accept': 'application/json'}
     params = {'ipAddress': ip}
+    
     try:
         response = requests.get(base_url, headers=headers, params=params, timeout=5)
         if response.status_code == 200:
             data = response.json()
-            return data['data']['abuseConfidenceScore']
+            score = data['data']['abuseConfidenceScore']
+            # Cache the result
+            cache.set(ip, score)
+            return score
         else:
             print(f"[ERROR] API returned status code {response.status_code} for IP {ip}")
             return None
@@ -477,6 +562,14 @@ def main():
     severity_medium = config.getint('default', 'pattern_severity_medium', fallback=6)
     severity_high = config.getint('default', 'pattern_severity_high', fallback=10)
 
+    # Initialize IP reputation cache
+    cache_file = config.get('default', 'ip_cache_file', fallback='ip_cache.json')
+    cache_ttl = config.getint('default', 'ip_cache_ttl_hours', fallback=24)
+    ip_cache = IPReputationCache(cache_file=cache_file, ttl_hours=cache_ttl)
+
+    # Clear expired cache entries at startup
+    ip_cache.clear_expired()
+
     print("[INFO] Starting log parsing...")
     chronological_events, events_by_ip = parse_auth_log(log_file)
     
@@ -586,7 +679,7 @@ def main():
                     continue
                 # If action is 'check', continue with normal processing
                 
-            score = check_ip_reputation(ip, api_key, base_url)
+            score = check_ip_reputation(ip, api_key, base_url, ip_cache)
             if score is not None and score >= threshold:
                 log_alert(alert_log, ip, score)
                 alerts_generated = True
