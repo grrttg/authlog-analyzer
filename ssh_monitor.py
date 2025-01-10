@@ -7,9 +7,21 @@ import configparser
 import argparse
 import socket
 import ipaddress
+from dotenv import load_dotenv
+
+print("[DEBUG] Entered ssh_monitor.py – top of file!")
+print("[DEBUG] Python interpreter in use:", sys.executable)
+
+from dotenv import load_dotenv
+print("[DEBUG] Attempting to load .env")
+load_dotenv()
+import os
+print("[DEBUG] ABUSEIPDB_API_KEY from env is:", os.environ.get("ABUSEIPDB_API_KEY"))
 
 # New comprehensive regex pattern
 FAILED_REGEX = r"Failed password for .* from ([^\s]+) port"
+
+print("Script has started!")
 
 def sanitize_file_path(file_path, allowed_paths=None):
     """
@@ -202,6 +214,30 @@ def is_rfc1918(ip):
     except ValueError:
         return False
 
+def get_api_key():
+    """Get API key from environment variable or config file."""
+    # Try to load from .env file
+    load_dotenv()
+    
+    print("API_KEY is:", os.environ.get("ABUSEIPDB_API_KEY"))  # Note: Changed API_KEY to ABUSEIPDB_API_KEY to match your existing code
+    
+    # Check environment variable first
+    api_key = os.getenv('ABUSEIPDB_API_KEY')
+    if api_key:
+        return api_key
+        
+    # Fall back to config.ini if env var not found
+    try:
+        config = configparser.ConfigParser()
+        config.read('config.ini')
+        api_key = config.get('abuseipdb', 'api_key', fallback=None)
+        if api_key:
+            print("[WARNING] Using API key from config.ini. Consider moving it to environment variable.")
+        return api_key
+    except Exception as e:
+        print(f"[ERROR] Failed to read API key from config: {e}")
+        return None
+
 def main():
     """Main script logic."""
     parser = argparse.ArgumentParser(description="Monitor and analyze SSH logs.")
@@ -232,7 +268,7 @@ def main():
     
     threshold = config.getint('default', 'threshold', fallback=50)
     alert_log = config.get('default', 'alert_log', fallback='alerts.log')
-    api_key = config.get('abuseipdb', 'api_key', fallback=None)
+    api_key = get_api_key()
     base_url = config.get('abuseipdb', 'base_url', fallback='https://api.abuseipdb.com/api/v2/check')
     
     # Get whitelist from config
