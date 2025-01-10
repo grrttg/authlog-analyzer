@@ -3,60 +3,68 @@
 # - Standard location on many Linux distributions
 # - Contains all SSH login attempts, successful or failed
 # - Requires appropriate permissions to read (usually needs root/sudo)
-# - Can be configured here as it may vary by environment but isn't sensitive
 log_file = /var/log/auth.log
 
 # Minimum AbuseIPDB confidence score that triggers an alert
-# - Set to 50 as a reasonable baseline for identifying potentially malicious IPs
-# - AbuseIPDB scores range from 0-100
-# - Higher scores indicate higher confidence that the IP is abusive
-# - Belongs in config.ini as it's a tunable parameter, not a secret
+# - Scores range from 0-100, higher means more likely abusive
+# - 50 is recommended baseline for potential threats
 threshold = 50
 
 # Location where the tool will write its alert logs
 # - Separate from system logs for easier analysis
 # - Contains detailed information about detected threats
-# - Used for historical analysis and incident response
-# - Configuration value that may change between environments
 alert_log = alerts.log
 
-# Whitelist entries:
-# - Supports both individual IPs (127.0.0.1) and CIDR notation (192.168.1.0/24)
-# - 127.0.0.1: Localhost loopback address, always trusted for local testing and development
-# - 192.168.1.0/24: Example corporate network range where trusted admin workstations reside
-# - Stored in config.ini as these are environment-specific but not sensitive
+# Whitelist entries for trusted IPs and networks
+# - Supports individual IPs and CIDR notation (192.168.1.0/24)
+# - Example: localhost and corporate network ranges
 whitelist = 127.0.0.1, 192.168.1.0/24
 
-# Blacklist entries demonstrate common security controls:
-# - Stored in config.ini as these are operational configurations, not secrets
-# - May differ between environments but don't need to be hidden
+# Blacklist entries for blocked IPs and networks
+# - Permanently blocked addresses and ranges
+# - Example: known malicious networks
 blacklist = 10.0.0.5, 172.16.0.0/16
 
-# Determines how to handle internal (RFC 1918) IP addresses
-# - Configuration choice that affects behavior but isn't sensitive
-internal_ip_action = log  # Options: ignore, log, or check
+# How to handle internal (RFC 1918) IP addresses
+# - Options: ignore (skip checks), log (record only), check (full analysis)
+internal_ip_action = log
 
-# Pattern detection settings
+# IP reputation cache configuration
+# - Reduces API calls by storing results temporarily
+# - TTL controls how long entries remain valid
+ip_cache_file = ip_cache.json
+ip_cache_ttl_hours = 24
+
+# Pattern detection master switch and threshold
+# - Enable/disable all pattern detection features
+# - Base threshold for failed login attempts
 pattern_detection = true
 failed_attempt_threshold = 3
 
-# Severity thresholds for failed attempts (number of fails before success)
-pattern_severity_low = 3      # 3-5 failures: Low severity
-pattern_severity_medium = 6   # 6-9 failures: Medium severity
-pattern_severity_high = 10    # 10+ failures: High severity
+# Severity thresholds for consecutive failed attempts
+# - Low: 3-5 failures before success
+# - Medium: 6-9 failures before success
+# - High: 10+ failures before success
+pattern_severity_low = 3
+pattern_severity_medium = 6
+pattern_severity_high = 10
 
 # Time-based pattern detection settings
-pattern_time_window = 300  # Time window in seconds (5 minutes)
-pattern_time_threshold = 10  # Number of failures within time window
+# - Window: how long to look back for patterns (seconds)
+# - Threshold: minimum failures to trigger alert
+pattern_time_window = 300
+pattern_time_threshold = 10
 
-# Severity thresholds for time-based detection
-pattern_time_severity_low = 5      # 5+ failures in window: Low severity
-pattern_time_severity_medium = 10  # 10+ failures in window: Medium severity
-pattern_time_severity_high = 15    # 15+ failures in window: High severity
+# Time-window based severity thresholds
+# - Low: 5+ failures in window
+# - Medium: 10+ failures in window
+# - High: 15+ failures in window
+pattern_time_severity_low = 5
+pattern_time_severity_medium = 10
+pattern_time_severity_high = 15
 
 [abuseipdb]
 # Base URL for the AbuseIPDB API
-# - Static endpoint that doesn't contain sensitive information
-# - Can be version controlled safely
-# - API key is stored separately in .env file for security
+# - Static endpoint for API requests
+# - API key stored separately in .env file
 base_url = https://api.abuseipdb.com/api/v2/check
