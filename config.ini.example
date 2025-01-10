@@ -6,10 +6,10 @@
 # - Can be configured here as it may vary by environment but isn't sensitive
 log_file = /var/log/auth.log
 
-# Number of failed login attempts before triggering an alert
-# - Set to 50 as a reasonable baseline for detecting brute force attempts
-# - High enough to avoid false positives from legitimate typos
-# - Low enough to catch automated attack attempts
+# Minimum AbuseIPDB confidence score that triggers an alert
+# - Set to 50 as a reasonable baseline for identifying potentially malicious IPs
+# - AbuseIPDB scores range from 0-100
+# - Higher scores indicate higher confidence that the IP is abusive
 # - Belongs in config.ini as it's a tunable parameter, not a secret
 threshold = 50
 
@@ -21,6 +21,7 @@ threshold = 50
 alert_log = alerts.log
 
 # Whitelist entries:
+# - Supports both individual IPs (127.0.0.1) and CIDR notation (192.168.1.0/24)
 # - 127.0.0.1: Localhost loopback address, always trusted for local testing and development
 # - 192.168.1.0/24: Example corporate network range where trusted admin workstations reside
 # - Stored in config.ini as these are environment-specific but not sensitive
