@@ -9,8 +9,19 @@ import socket
 import ipaddress
 from dotenv import load_dotenv
 
+print("[DEBUG] Entered ssh_monitor.py – top of file!")
+print("[DEBUG] Python interpreter in use:", sys.executable)
+
+from dotenv import load_dotenv
+print("[DEBUG] Attempting to load .env")
+load_dotenv()
+import os
+print("[DEBUG] ABUSEIPDB_API_KEY from env is:", os.environ.get("ABUSEIPDB_API_KEY"))
+
 # New comprehensive regex pattern
 FAILED_REGEX = r"Failed password for .* from ([^\s]+) port"
+
+print("Script has started!")
 
 def sanitize_file_path(file_path, allowed_paths=None):
     """
@@ -207,6 +218,8 @@ def get_api_key():
     """Get API key from environment variable or config file."""
     # Try to load from .env file
     load_dotenv()
+    
+    print("API_KEY is:", os.environ.get("ABUSEIPDB_API_KEY"))  # Note: Changed API_KEY to ABUSEIPDB_API_KEY to match your existing code
     
     # Check environment variable first
     api_key = os.getenv('ABUSEIPDB_API_KEY')
