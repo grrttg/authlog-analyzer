@@ -39,6 +39,11 @@ class LoginEvent:
     username: str
     auth_method: str  # password or publickey
 
+    @property
+    def unix_timestamp(self) -> float:
+        """Convert datetime to Unix timestamp for easier time window calculations."""
+        return self.timestamp.timestamp()
+
 def sanitize_file_path(file_path, allowed_paths=None):
     """
     Sanitize and validate a file path.
@@ -163,9 +168,10 @@ def log_alert(alert_log_path, ip, score):
     """Log an alert to a file."""
     try:
         if score == -1:
-            alert_message = f"[ALERT] Internal IP detected: {ip} (RFC 1918 address)\n"
+            alert_message = f"[ALERT] [LOW] Internal IP detected: {ip} (RFC 1918 address)\n"
         else:
-            alert_message = f"[ALERT] IP: {ip}, Abuse Score: {score}\n"
+            severity = "HIGH" if score >= 80 else "MEDIUM" if score >= 50 else "LOW"
+            alert_message = f"[ALERT] [{severity}] IP: {ip}, Abuse Score: {score}\n"
             
         print(alert_message.strip())
         with open(alert_log_path, 'a') as log_file:
@@ -348,6 +354,65 @@ def analyze_login_patterns(
     
     return suspicious_patterns
 
+def analyze_time_window_patterns(
+    events_by_ip: dict,
+    time_window: int = 300,  # 5 minutes in seconds
+    attempt_threshold: int = 10,
+    severity_low: int = 5,
+    severity_medium: int = 10,
+    severity_high: int = 15,
+    whitelist: list = None
+) -> list:
+    """
+    Analyze login patterns within a sliding time window.
+    Returns list of IPs with suspicious frequency of failed attempts.
+    """
+    suspicious_patterns = []
+    
+    for ip, events in events_by_ip.items():
+        # Skip whitelisted IPs
+        if whitelist and is_ip_whitelisted(ip, whitelist):
+            print(f"[INFO] Skipping time-window analysis for whitelisted IP: {ip}")
+            continue
+            
+        # Sort events chronologically
+        sorted_events = sorted(events, key=lambda x: x.timestamp)
+        failed_events = [e for e in sorted_events if e.event_type == LOGIN_FAILED]
+        
+        # Skip if not enough failed attempts
+        if len(failed_events) < severity_low:
+            continue
+            
+        # Check each event's time window
+        for i, event in enumerate(failed_events):
+            window_start = event.unix_timestamp
+            window_end = window_start + time_window
+            
+            # Count failures in window
+            failures_in_window = sum(
+                1 for e in failed_events[i:]
+                if window_start <= e.unix_timestamp <= window_end
+            )
+            
+            if failures_in_window >= attempt_threshold:
+                # Determine severity
+                severity = "LOW"
+                if failures_in_window >= severity_high:
+                    severity = "HIGH"
+                elif failures_in_window >= severity_medium:
+                    severity = "MEDIUM"
+                
+                suspicious_patterns.append({
+                    'ip': ip,
+                    'failed_attempts': failures_in_window,
+                    'window_start': datetime.fromtimestamp(window_start),
+                    'window_end': datetime.fromtimestamp(window_end),
+                    'severity': severity
+                })
+                break  # Found a window with enough failures
+                
+    return suspicious_patterns
+
 def main():
     """Main script logic."""
     parser = argparse.ArgumentParser(description="Monitor and analyze SSH logs.")
@@ -417,6 +482,7 @@ def main():
     
     # Analyze patterns if enabled
     if pattern_detection:
+        # Original pattern detection
         suspicious_patterns = analyze_login_patterns(
             events_by_ip,
             failed_threshold=failed_threshold,
@@ -451,6 +517,43 @@ def main():
                         f.write(alert_message)
                 except Exception as e:
                     print(f"[ERROR] Could not write pattern alert to log: {e}")
+
+        # Add time-window pattern detection
+        time_window_patterns = analyze_time_window_patterns(
+            events_by_ip,
+            time_window=config.getint('default', 'pattern_time_window', fallback=300),
+            attempt_threshold=config.getint('default', 'pattern_time_threshold', fallback=10),
+            severity_low=config.getint('default', 'pattern_time_severity_low', fallback=5),
+            severity_medium=config.getint('default', 'pattern_time_severity_medium', fallback=10),
+            severity_high=config.getint('default', 'pattern_time_severity_high', fallback=15),
+            whitelist=whitelist
+        )
+        
+        # Log time-window patterns
+        if time_window_patterns:
+            print("\n[WARNING] Detected high-frequency login failures:")
+            for pattern in time_window_patterns:
+                severity_color = {
+                    "LOW": "yellow",
+                    "MEDIUM": "red",
+                    "HIGH": "bold red"
+                }.get(pattern['severity'], "yellow")
+                
+                message = (
+                    f"[ALERT] [{pattern['severity']}] High frequency login failures from {pattern['ip']}: "
+                    f"{pattern['failed_attempts']} failures between "
+                    f"{pattern['window_start'].strftime('%Y-%m-%d %H:%M:%S')} and "
+                    f"{pattern['window_end'].strftime('%Y-%m-%d %H:%M:%S')}"
+                )
+                print(f"[{severity_color}]{message}[/]")
+                
+                # Log to alert file with time-window prefix
+                alert_message = f"[TIME-{pattern['severity']}] {message}\n"
+                try:
+                    with open(alert_log, 'a') as f:
+                        f.write(alert_message)
+                except Exception as e:
+                    print(f"[ERROR] Could not write time-window alert to log: {e}")
 
     # After pattern detection, process IPs for reputation checks
     unique_ips = set(events_by_ip.keys())

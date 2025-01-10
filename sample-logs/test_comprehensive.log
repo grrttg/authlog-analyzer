@@ -23,3 +23,47 @@ Jan 1 12:03:01 host sshd[1248]: Failed password for invalid user admin from 192.
 Jan 1 12:03:02 host sshd[1249]: Failed password for invalid user admin from 192.168.2.100 port 22 ssh2
 Jan 1 12:03:03 host sshd[1250]: Failed password for invalid user admin from 192.168.2.100 port 22 ssh2
 Jan 1 12:03:04 host sshd[1251]: Accepted publickey for admin from 192.168.2.100 port 22 ssh2 
+
+# Time-Window LOW Severity Test (5 failures in 2 minutes)
+Jan 1 12:04:01 host sshd[1252]: Failed password for invalid user test from 3.3.3.3 port 22 ssh2
+Jan 1 12:04:30 host sshd[1253]: Failed password for invalid user test from 3.3.3.3 port 22 ssh2
+Jan 1 12:05:01 host sshd[1254]: Failed password for invalid user test from 3.3.3.3 port 22 ssh2
+Jan 1 12:05:30 host sshd[1255]: Failed password for invalid user test from 3.3.3.3 port 22 ssh2
+Jan 1 12:06:01 host sshd[1256]: Failed password for invalid user test from 3.3.3.3 port 22 ssh2
+
+# Time-Window MEDIUM Severity Test (10 failures in 4 minutes)
+Jan 1 12:10:01 host sshd[1257]: Failed password for invalid user admin from 4.4.4.4 port 22 ssh2
+Jan 1 12:10:30 host sshd[1258]: Failed password for invalid user admin from 4.4.4.4 port 22 ssh2
+Jan 1 12:11:01 host sshd[1259]: Failed password for invalid user admin from 4.4.4.4 port 22 ssh2
+Jan 1 12:11:30 host sshd[1260]: Failed password for invalid user admin from 4.4.4.4 port 22 ssh2
+Jan 1 12:12:01 host sshd[1261]: Failed password for invalid user admin from 4.4.4.4 port 22 ssh2
+Jan 1 12:12:30 host sshd[1262]: Failed password for invalid user admin from 4.4.4.4 port 22 ssh2
+Jan 1 12:13:01 host sshd[1263]: Failed password for invalid user admin from 4.4.4.4 port 22 ssh2
+Jan 1 12:13:30 host sshd[1264]: Failed password for invalid user admin from 4.4.4.4 port 22 ssh2
+Jan 1 12:14:01 host sshd[1265]: Failed password for invalid user admin from 4.4.4.4 port 22 ssh2
+Jan 1 12:14:30 host sshd[1266]: Failed password for invalid user admin from 4.4.4.4 port 22 ssh2
+
+# Time-Window HIGH Severity Test (15 failures in 5 minutes)
+Jan 1 12:20:01 host sshd[1267]: Failed password for invalid user root from 5.5.5.5 port 22 ssh2
+Jan 1 12:20:20 host sshd[1268]: Failed password for invalid user root from 5.5.5.5 port 22 ssh2
+Jan 1 12:20:40 host sshd[1269]: Failed password for invalid user root from 5.5.5.5 port 22 ssh2
+Jan 1 12:21:01 host sshd[1270]: Failed password for invalid user root from 5.5.5.5 port 22 ssh2
+Jan 1 12:21:20 host sshd[1271]: Failed password for invalid user root from 5.5.5.5 port 22 ssh2
+Jan 1 12:21:40 host sshd[1272]: Failed password for invalid user root from 5.5.5.5 port 22 ssh2
+Jan 1 12:22:01 host sshd[1273]: Failed password for invalid user root from 5.5.5.5 port 22 ssh2
+Jan 1 12:22:20 host sshd[1274]: Failed password for invalid user root from 5.5.5.5 port 22 ssh2
+Jan 1 12:22:40 host sshd[1275]: Failed password for invalid user root from 5.5.5.5 port 22 ssh2
+Jan 1 12:23:01 host sshd[1276]: Failed password for invalid user root from 5.5.5.5 port 22 ssh2
+Jan 1 12:23:20 host sshd[1277]: Failed password for invalid user root from 5.5.5.5 port 22 ssh2
+Jan 1 12:23:40 host sshd[1278]: Failed password for invalid user root from 5.5.5.5 port 22 ssh2
+Jan 1 12:24:01 host sshd[1279]: Failed password for invalid user root from 5.5.5.5 port 22 ssh2
+Jan 1 12:24:20 host sshd[1280]: Failed password for invalid user root from 5.5.5.5 port 22 ssh2
+Jan 1 12:24:40 host sshd[1281]: Failed password for invalid user root from 5.5.5.5 port 22 ssh2
+
+# Whitelisted IP Time-Window Test (should not trigger despite high frequency)
+Jan 1 12:30:01 host sshd[1282]: Failed password for invalid user admin from 192.168.1.100 port 22 ssh2
+Jan 1 12:30:10 host sshd[1283]: Failed password for invalid user admin from 192.168.1.100 port 22 ssh2
+Jan 1 12:30:20 host sshd[1284]: Failed password for invalid user admin from 192.168.1.100 port 22 ssh2
+Jan 1 12:30:30 host sshd[1285]: Failed password for invalid user admin from 192.168.1.100 port 22 ssh2
+Jan 1 12:30:40 host sshd[1286]: Failed password for invalid user admin from 192.168.1.100 port 22 ssh2
+Jan 1 12:30:50 host sshd[1287]: Failed password for invalid user admin from 192.168.1.100 port 22 ssh2 

@@ -45,6 +45,15 @@ pattern_severity_low = 3      # 3-5 failures: Low severity
 pattern_severity_medium = 6   # 6-9 failures: Medium severity
 pattern_severity_high = 10    # 10+ failures: High severity
 
+# Time-based pattern detection settings
+pattern_time_window = 300  # Time window in seconds (5 minutes)
+pattern_time_threshold = 10  # Number of failures within time window
+
+# Severity thresholds for time-based detection
+pattern_time_severity_low = 5      # 5+ failures in window: Low severity
+pattern_time_severity_medium = 10  # 10+ failures in window: Medium severity
+pattern_time_severity_high = 15    # 15+ failures in window: High severity
+
 [abuseipdb]
 # Base URL for the AbuseIPDB API
 # - Static endpoint that doesn't contain sensitive information
