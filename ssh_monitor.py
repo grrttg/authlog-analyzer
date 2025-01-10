@@ -8,6 +8,8 @@ import argparse
 import socket
 import ipaddress
 from dotenv import load_dotenv
+from dataclasses import dataclass
+from datetime import datetime
 
 print("[DEBUG] Entered ssh_monitor.py – top of file!")
 print("[DEBUG] Python interpreter in use:", sys.executable)
@@ -20,8 +22,22 @@ print("[DEBUG] ABUSEIPDB_API_KEY from env is:", os.environ.get("ABUSEIPDB_API_KE
 
 # New comprehensive regex pattern
 FAILED_REGEX = r"Failed password for .* from ([^\s]+) port"
+SUCCESS_REGEX = r"Accepted (?:password|publickey) for .* from ([^\s]+) port"
+
+# Event types
+LOGIN_FAILED = "FAILED"
+LOGIN_SUCCESS = "SUCCESS"
 
 print("Script has started!")
+
+@dataclass
+class LoginEvent:
+    """Represents a single login attempt."""
+    timestamp: datetime
+    ip: str
+    event_type: str
+    username: str
+    auth_method: str  # password or publickey
 
 def sanitize_file_path(file_path, allowed_paths=None):
     """
@@ -58,7 +74,7 @@ def sanitize_file_path(file_path, allowed_paths=None):
         return None
 
 def parse_auth_log(log_path):
-    """Parse the SSH auth log and extract IPs from failed login attempts."""
+    """Parse the SSH auth log and extract chronological login events."""
     print(f"[INFO] Parsing log file: {log_path}")
     
     # Sanitize the log path
@@ -72,28 +88,56 @@ def parse_auth_log(log_path):
             lines = log_file.readlines()
         if not lines:
             print("[INFO] Log file is empty.")
-            return []
+            return [], {}
             
-        ip_addresses = []
+        # Store events chronologically and by IP
+        chronological_events = []
+        events_by_ip = {}
+        
         for line in lines:
+            # Check for failed attempts
             match = re.search(FAILED_REGEX, line)
-            if match:
+            event_type = LOGIN_FAILED if match else None
+            
+            # If no failed match, check for successful attempts
+            if not match:
+                match = re.search(SUCCESS_REGEX, line)
+                event_type = LOGIN_SUCCESS if match else None
+            
+            if match and event_type:
                 raw_ip = match.group(1)
                 if raw_ip == "<INSERT_KNOWN_MALICIOUS_IP>":
-                    print("[INFO] Test file detected. Please replace <INSERT_KNOWN_MALICIOUS_IP> with a real IP address known to have a high abuse score.")
                     continue
+                    
                 normalized_ip = validate_and_normalize_ip(raw_ip)
-                if normalized_ip:
-                    ip_addresses.append(normalized_ip)
-                else:
+                if not normalized_ip:
                     print(f"[WARNING] Invalid IP or hostname found: {raw_ip}")
+                    continue
                 
-        if not ip_addresses:
-            print("[INFO] No failed login attempts with valid IPs found.")
-        else:
-            print(f"[INFO] Found {len(ip_addresses)} failed login attempts with valid IPs.")
-            
-        return ip_addresses
+                # Extract username and auth method
+                username = re.search(r"for (?:invalid user )?(\w+)", line)
+                username = username.group(1) if username else "unknown"
+                auth_method = "publickey" if "publickey" in line else "password"
+                
+                # Create login event
+                event = LoginEvent(
+                    timestamp=parse_log_timestamp(line),
+                    ip=normalized_ip,
+                    event_type=event_type,
+                    username=username,
+                    auth_method=auth_method
+                )
+                
+                # Store chronologically
+                chronological_events.append(event)
+                
+                # Store by IP
+                if normalized_ip not in events_by_ip:
+                    events_by_ip[normalized_ip] = []
+                events_by_ip[normalized_ip].append(event)
+        
+        return chronological_events, events_by_ip
+        
     except FileNotFoundError:
         print(f"[ERROR] Log file '{log_path}' not found.")
         sys.exit(1)
@@ -238,6 +282,72 @@ def get_api_key():
         print(f"[ERROR] Failed to read API key from config: {e}")
         return None
 
+def parse_log_timestamp(log_line: str) -> datetime:
+    """Extract timestamp from log line and convert to datetime object."""
+    try:
+        # Example: "Mar 15 09:23:45"
+        timestamp_str = " ".join(log_line.split()[:3])
+        # Add current year since logs typically don't include it
+        timestamp_str = f"{timestamp_str} {datetime.now().year}"
+        return datetime.strptime(timestamp_str, "%b %d %H:%M:%S %Y")
+    except (ValueError, IndexError):
+        return datetime.now()  # Fallback to current time if parsing fails
+
+def analyze_login_patterns(
+    events_by_ip: dict, 
+    failed_threshold: int = 3,
+    severity_low: int = 3,
+    severity_medium: int = 6,
+    severity_high: int = 10,
+    whitelist: list = None
+) -> list:
+    """
+    Analyze login patterns for each IP and identify suspicious behavior.
+    Returns list of suspicious IPs and their patterns.
+    
+    Severity levels:
+    - LOW: failed_attempts >= severity_low
+    - MEDIUM: failed_attempts >= severity_medium
+    - HIGH: failed_attempts >= severity_high
+    """
+    suspicious_patterns = []
+    
+    for ip, events in events_by_ip.items():
+        # Skip whitelisted IPs
+        if whitelist and is_ip_whitelisted(ip, whitelist):
+            print(f"[INFO] Skipping pattern detection for whitelisted IP: {ip}")
+            continue
+            
+        # Sort events chronologically
+        sorted_events = sorted(events, key=lambda x: x.timestamp)
+        
+        # Count failed attempts before each successful login
+        failed_count = 0
+        for event in sorted_events:
+            if event.event_type == LOGIN_FAILED:
+                failed_count += 1
+            elif event.event_type == LOGIN_SUCCESS and failed_count >= failed_threshold:
+                # Determine severity
+                severity = "LOW"
+                if failed_count >= severity_high:
+                    severity = "HIGH"
+                elif failed_count >= severity_medium:
+                    severity = "MEDIUM"
+                
+                suspicious_patterns.append({
+                    'ip': ip,
+                    'failed_attempts': failed_count,
+                    'success_time': event.timestamp,
+                    'username': event.username,
+                    'auth_method': event.auth_method,
+                    'severity': severity
+                })
+                failed_count = 0  # Reset counter after successful login
+            elif event.event_type == LOGIN_SUCCESS:
+                failed_count = 0  # Reset counter after any successful login
+    
+    return suspicious_patterns
+
 def main():
     """Main script logic."""
     parser = argparse.ArgumentParser(description="Monitor and analyze SSH logs.")
@@ -295,17 +405,63 @@ def main():
         print("[WARNING] Invalid internal_ip_action in config. Using 'log' as default.")
         internal_ip_action = 'log'
 
-    print("[INFO] Starting log parsing...")
-    ip_addresses = parse_auth_log(log_file)
+    # Load pattern detection settings
+    pattern_detection = config.getboolean('default', 'pattern_detection', fallback=True)
+    failed_threshold = config.getint('default', 'failed_attempt_threshold', fallback=3)
+    severity_low = config.getint('default', 'pattern_severity_low', fallback=3)
+    severity_medium = config.getint('default', 'pattern_severity_medium', fallback=6)
+    severity_high = config.getint('default', 'pattern_severity_high', fallback=10)
 
-    if not ip_addresses:
+    print("[INFO] Starting log parsing...")
+    chronological_events, events_by_ip = parse_auth_log(log_file)
+    
+    # Analyze patterns if enabled
+    if pattern_detection:
+        suspicious_patterns = analyze_login_patterns(
+            events_by_ip,
+            failed_threshold=failed_threshold,
+            severity_low=severity_low,
+            severity_medium=severity_medium,
+            severity_high=severity_high,
+            whitelist=whitelist
+        )
+        
+        # Log suspicious patterns with severity-based formatting
+        if suspicious_patterns:
+            print("\n[WARNING] Detected suspicious login patterns:")
+            for pattern in suspicious_patterns:
+                severity_color = {
+                    "LOW": "yellow",
+                    "MEDIUM": "red",
+                    "HIGH": "bold red"
+                }.get(pattern['severity'], "yellow")
+                
+                message = (
+                    f"[ALERT] [{pattern['severity']}] Suspicious login pattern from {pattern['ip']}: "
+                    f"{pattern['failed_attempts']} failed attempts before successful "
+                    f"{pattern['auth_method']} login as '{pattern['username']}' "
+                    f"at {pattern['success_time']}"
+                )
+                print(f"[{severity_color}]{message}[/]")
+                
+                # Log to alert file with severity prefix
+                alert_message = f"[PATTERN-{pattern['severity']}] {message}\n"
+                try:
+                    with open(alert_log, 'a') as f:
+                        f.write(alert_message)
+                except Exception as e:
+                    print(f"[ERROR] Could not write pattern alert to log: {e}")
+
+    # After pattern detection, process IPs for reputation checks
+    unique_ips = set(events_by_ip.keys())
+    if not unique_ips:
         print("[INFO] No valid IPs to check.")
         print("[INFO] No alerts were generated. alerts.log was not created.")
     else:
         print("[INFO] Checking IP reputations...")
         alerts_generated = False
         
-        for ip in ip_addresses:
+        for ip in unique_ips:
             if is_ip_blacklisted(ip, blacklist):
                 print(f"[INFO] Found blacklisted IP: {ip}")
                 log_alert(alert_log, ip, 100)  # Use score 100 for blacklisted IPs

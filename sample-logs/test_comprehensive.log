@@ -1,0 +1,25 @@
+# IPv6 Test
+Jan 1 12:00:01 host sshd[1234]: Failed password for invalid user admin from 2001:db8::1 port 22 ssh2
+Jan 1 12:00:02 host sshd[1235]: Failed password for invalid user admin from 2001:db8::1 port 22 ssh2
+Jan 1 12:00:03 host sshd[1236]: Failed password for invalid user admin from 2001:db8::1 port 22 ssh2
+Jan 1 12:00:04 host sshd[1237]: Accepted password for admin from 2001:db8::1 port 22 ssh2
+
+# Multiple Users Same IP
+Jan 1 12:01:01 host sshd[1238]: Failed password for invalid user admin from 1.1.1.1 port 22 ssh2
+Jan 1 12:01:02 host sshd[1239]: Failed password for invalid user root from 1.1.1.1 port 22 ssh2
+Jan 1 12:01:03 host sshd[1240]: Failed password for invalid user admin from 1.1.1.1 port 22 ssh2
+Jan 1 12:01:04 host sshd[1241]: Accepted password for admin from 1.1.1.1 port 22 ssh2
+
+# Mixed Success/Failure Pattern
+Jan 1 12:02:01 host sshd[1242]: Failed password for invalid user test from 2.2.2.2 port 22 ssh2
+Jan 1 12:02:02 host sshd[1243]: Accepted password for test from 2.2.2.2 port 22 ssh2
+Jan 1 12:02:03 host sshd[1244]: Failed password for invalid user test from 2.2.2.2 port 22 ssh2
+Jan 1 12:02:04 host sshd[1245]: Failed password for invalid user test from 2.2.2.2 port 22 ssh2
+Jan 1 12:02:05 host sshd[1246]: Failed password for invalid user test from 2.2.2.2 port 22 ssh2
+Jan 1 12:02:06 host sshd[1247]: Accepted password for test from 2.2.2.2 port 22 ssh2
+
+# Internal IP with Different Auth Methods
+Jan 1 12:03:01 host sshd[1248]: Failed password for invalid user admin from 192.168.2.100 port 22 ssh2
+Jan 1 12:03:02 host sshd[1249]: Failed password for invalid user admin from 192.168.2.100 port 22 ssh2
+Jan 1 12:03:03 host sshd[1250]: Failed password for invalid user admin from 192.168.2.100 port 22 ssh2
+Jan 1 12:03:04 host sshd[1251]: Accepted publickey for admin from 192.168.2.100 port 22 ssh2 

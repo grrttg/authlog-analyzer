@@ -36,6 +36,15 @@ blacklist = 10.0.0.5, 172.16.0.0/16
 # - Configuration choice that affects behavior but isn't sensitive
 internal_ip_action = log  # Options: ignore, log, or check
 
+# Pattern detection settings
+pattern_detection = true
+failed_attempt_threshold = 3
+
+# Severity thresholds for failed attempts (number of fails before success)
+pattern_severity_low = 3      # 3-5 failures: Low severity
+pattern_severity_medium = 6   # 6-9 failures: Medium severity
+pattern_severity_high = 10    # 10+ failures: High severity
+
 [abuseipdb]
 # Base URL for the AbuseIPDB API
 # - Static endpoint that doesn't contain sensitive information
